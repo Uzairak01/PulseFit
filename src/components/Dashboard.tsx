@@ -3,6 +3,7 @@ import { storageService, getLocalDateString } from '../utils/storage';
 import type { UserStreak } from '../types';
 import { Flame, Activity, Trophy, Calendar, PlusCircle, ArrowRight, CheckCircle2, Award } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
+import { useAuth } from '../context/AuthContext';
 
 interface DashboardProps {
   onNavigate: (tab: string) => void;
@@ -10,6 +11,7 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, refreshTrigger }) => {
+  const { user } = useAuth();
   const [streak, setStreak] = useState<UserStreak>({ currentStreak: 0, bestStreak: 0 });
   const [todaySets, setTodaySets] = useState(0);
   const [weeklySetCount, setWeeklySetCount] = useState(0);
@@ -101,13 +103,52 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, refreshTrigger
   };
 
   return (
-    <div className="dashboard-view animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+    <div className="dashboard-view animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       
+      {/* Promotional banner for guests */}
+      {!user && (
+        <div className="glass-panel" style={{
+          padding: '1.25rem 1.75rem',
+          background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(168, 85, 247, 0.12))',
+          border: '1px solid rgba(6, 182, 212, 0.2)',
+          borderRadius: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1.25rem',
+          boxShadow: '0 4px 30px rgba(0, 0, 0, 0.2)'
+        }}>
+          <div style={{ flex: 1, minWidth: '280px' }}>
+            <h4 style={{ color: '#ffffff', fontWeight: 600, fontSize: '1rem', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Award size={18} style={{ color: 'var(--color-accent)' }} />
+              Unlock Premium Features
+            </h4>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.4' }}>
+              Create an account or sign in to save your history, analyze targeted muscles, track active streaks, and enable cloud backup!
+            </p>
+          </div>
+          <button 
+            onClick={() => onNavigate('log')} 
+            className="button-primary" 
+            style={{ 
+              padding: '0.6rem 1.25rem', 
+              fontSize: '0.85rem',
+              background: 'linear-gradient(135deg, var(--color-accent), var(--color-purple))',
+              border: 'none',
+              boxShadow: '0 4px 15px rgba(6, 182, 212, 0.2)'
+            }}
+          >
+            Sign In / Join
+          </button>
+        </div>
+      )}
+
       {/* Welcome Banner */}
       <div className="glass-panel" style={{ padding: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem' }}>
         <div>
           <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem', background: 'linear-gradient(to right, #ffffff, var(--color-accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Welcome Back, Athlete
+            {user ? `Welcome Back, ${user.displayName || 'Athlete'}` : 'Welcome, Athlete'}
           </h1>
           <p style={{ color: 'var(--text-secondary)' }}>
             Track your progress, correct your posture, and hit your fitness goals today.

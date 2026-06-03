@@ -116,8 +116,8 @@ export const storageService = {
     const updatedStreak = calculateStreak(logs);
     await storageService.saveUserStreak(updatedStreak);
 
-    // 3. Sync to Firebase if enabled
-    if (IS_FIREBASE_ENABLED) {
+    // 3. Sync to Firebase if enabled and authenticated
+    if (IS_FIREBASE_ENABLED && auth.currentUser) {
       try {
         await firebaseDB.saveWorkoutLog(getUserId(), log);
       } catch (err) {
@@ -142,8 +142,8 @@ export const storageService = {
       }
     }
 
-    // 2. Sync from Firebase if enabled (and merge)
-    if (IS_FIREBASE_ENABLED) {
+    // 2. Sync from Firebase if enabled and authenticated (and merge)
+    if (IS_FIREBASE_ENABLED && auth.currentUser) {
       try {
         const fbLogsList = await firebaseDB.getWorkoutLogs(getUserId());
         fbLogsList.forEach(log => {
@@ -172,7 +172,7 @@ export const storageService = {
    */
   saveUserStreak: async (streak: UserStreak): Promise<void> => {
     localStorage.setItem(STREAK_KEY, JSON.stringify(streak));
-    if (IS_FIREBASE_ENABLED) {
+    if (IS_FIREBASE_ENABLED && auth.currentUser) {
       try {
         await firebaseDB.saveUserStreak(getUserId(), streak);
       } catch (err) {
@@ -200,7 +200,7 @@ export const storageService = {
       localStorage.setItem(STREAK_KEY, JSON.stringify(streak));
     }
 
-    if (IS_FIREBASE_ENABLED) {
+    if (IS_FIREBASE_ENABLED && auth.currentUser) {
       try {
         const fbStreak = await firebaseDB.getUserStreak(getUserId());
         if (fbStreak) {
