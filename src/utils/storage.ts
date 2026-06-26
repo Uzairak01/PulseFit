@@ -29,6 +29,20 @@ export const hasCompletedSet = (log: WorkoutLog): boolean => {
 /**
  * Recalculates and updates the workout streak based on logs history.
  */
+/**
+ * Helper to calculate the difference in calendar days between two YYYY-MM-DD date strings.
+ * Appends 'T00:00:00Z' to ensure parsing in UTC, eliminating timezone and DST discrepancies.
+ */
+const getDaysBetween = (dateStr1: string, dateStr2: string): number => {
+  const d1 = new Date(`${dateStr1}T00:00:00Z`);
+  const d2 = new Date(`${dateStr2}T00:00:00Z`);
+  const diffTime = Math.abs(d2.getTime() - d1.getTime());
+  return Math.round(diffTime / (1000 * 60 * 60 * 24));
+};
+
+/**
+ * Recalculates and updates the workout streak based on logs history.
+ */
 export const calculateStreak = (logs: Record<string, WorkoutLog>): UserStreak => {
   const dates = Object.keys(logs)
     .filter(dateStr => hasCompletedSet(logs[dateStr]))
@@ -39,36 +53,38 @@ export const calculateStreak = (logs: Record<string, WorkoutLog>): UserStreak =>
   }
 
   const todayStr = getLocalDateString();
-  const yesterdayStr = getLocalDateString(new Date(Date.now() - 24 * 60 * 60 * 1000));
+  
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = getLocalDateString(yesterday);
 
   let currentStreak = 0;
   let bestStreak = 0;
   let runningStreak = 0;
-  let prevDate: Date | null = null;
+  let prevDateStr: string | null = null;
 
   // Process all logs chronologically
   for (let i = 0; i < dates.length; i++) {
-    const currentDate = new Date(dates[i]);
+    const currentDateStr = dates[i];
 
-    if (prevDate === null) {
+    if (prevDateStr === null) {
       runningStreak = 1;
     } else {
-      const diffTime = Math.abs(currentDate.getTime() - prevDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const diffDays = getDaysBetween(prevDateStr, currentDateStr);
 
       if (diffDays === 1) {
         runningStreak += 1;
       } else if (diffDays > 1) {
         runningStreak = 1; // Gap in workouts, reset running streak
       }
-      // If diffDays is 0 (multiple entries for same day - shouldn't happen with our ID structure), runningStreak remains same
+      // If diffDays is 0 (multiple entries for same day), runningStreak remains same
     }
 
     if (runningStreak > bestStreak) {
       bestStreak = runningStreak;
     }
 
-    prevDate = currentDate;
+    prevDateStr = currentDateStr;
   }
 
   // Calculate current streak based on last workout date
@@ -185,30 +201,31 @@ export const storageService = {
    * Get streak information (calculates fresh if cache is missing)
    */
   getUserStreak: async (): Promise<UserStreak> => {
-    let streak: UserStreak = { currentStreak: 0, bestStreak: 0 };
+    // Recalculate based on current logs to prevent stale cached streak values
+    const logs = await storageService.getWorkoutLogs();
+    let streak = calculateStreak(logs);
 
-    const localData = localStorage.getItem(STREAK_KEY);
-    if (localData) {
-      try {
-        streak = JSON.parse(localData);
-      } catch (e) {
-        console.error('Error parsing local streak', e);
-      }
-    } else {
-      const logs = await storageService.getWorkoutLogs();
-      streak = calculateStreak(logs);
-      localStorage.setItem(STREAK_KEY, JSON.stringify(streak));
-    }
+    // Save recalculated streak to LocalStorage
+    localStorage.setItem(STREAK_KEY, JSON.stringify(streak));
 
+    // Synchronize with Firebase if enabled and authenticated
     if (IS_FIREBASE_ENABLED && auth.currentUser) {
       try {
         const fbStreak = await firebaseDB.getUserStreak(getUserId());
         if (fbStreak) {
-          streak = fbStreak;
-          localStorage.setItem(STREAK_KEY, JSON.stringify(streak));
+          // If firebase has a higher bestStreak, preserve it
+          if (fbStreak.bestStreak > streak.bestStreak) {
+            streak.bestStreak = fbStreak.bestStreak;
+            localStorage.setItem(STREAK_KEY, JSON.stringify(streak));
+          }
+          // Sync back if local current/best is higher or different
+          await firebaseDB.saveUserStreak(getUserId(), streak);
+        } else {
+          // No streak in firebase, save our recalculated local one
+          await firebaseDB.saveUserStreak(getUserId(), streak);
         }
       } catch (err) {
-        console.error('Firebase load streak error:', err);
+        console.error('Firebase load/sync streak error:', err);
       }
     }
 

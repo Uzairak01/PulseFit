@@ -358,6 +358,11 @@ h1, h2, h3, h4, h5, h6 {
   width: 100%;
 }
 
+.input-field option {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
 .input-field:focus {
   border-color: var(--color-accent);
   box-shadow: 0 0 10px rgba(6, 182, 212, 0.15);
